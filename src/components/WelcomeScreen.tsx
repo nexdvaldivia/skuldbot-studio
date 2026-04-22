@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { open } from "@tauri-apps/api/dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { SkuldLogo } from "./ui/SkuldLogo";
 import { Button } from "./ui/Button";
 import { useProjectStore } from "../store/projectStore";

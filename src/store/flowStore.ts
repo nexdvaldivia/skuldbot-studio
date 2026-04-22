@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/core";
 import { FlowState, FlowNode, FlowEdge, FormTriggerConfig } from "../types/flow";
 import { useToastStore } from "./toastStore";
 import { useLogsStore } from "./logsStore";

@@ -1,6 +1,6 @@
 import { Play, Square, Download, Save, Package, Loader2, Undo, Redo } from "lucide-react";
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/core";
 import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useFlowStore, FormTriggerConfig } from "../store/flowStore";

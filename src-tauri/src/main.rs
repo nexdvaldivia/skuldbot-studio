@@ -9,7 +9,7 @@ use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
 use std::io::ErrorKind;
-use tauri::api::path::app_data_dir;
+use tauri::Manager;
 use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
@@ -2235,8 +2235,10 @@ fn load_vault_key(vault_path: &str) -> Result<String, String> {
 }
 
 fn vault_key_fallback_path(vault_path: &str, app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let mut base = app_data_dir(&app_handle.config())
-        .ok_or_else(|| "Failed to resolve app data dir".to_string())?;
+    let mut base = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data dir: {}", e))?;
     base.push("vault_keys");
     fs::create_dir_all(&base).map_err(|e| format!("Failed to create vault_keys dir: {}", e))?;
 
@@ -6018,8 +6020,10 @@ static CONNECTIONS_DB: once_cell::sync::OnceCell<Mutex<ConnectionsDb>> = once_ce
 
 fn get_connections_db(app_handle: &tauri::AppHandle) -> Result<&'static Mutex<ConnectionsDb>, String> {
     CONNECTIONS_DB.get_or_try_init(|| {
-        let app_dir = app_data_dir(&app_handle.config())
-            .ok_or_else(|| "Could not determine app data directory".to_string())?;
+        let app_dir = app_handle
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("Could not determine app data directory: {}", e))?;
         
         fs::create_dir_all(&app_dir)
             .map_err(|e| format!("Failed to create app data directory: {}", e))?;
@@ -6221,6 +6225,8 @@ fn main() {
     setup_engine();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             // Engine commands
             compile_dsl,
@@ -6300,8 +6306,8 @@ fn main() {
             protection::protection_check_status,
             protection::protection_get_machine_fingerprint
         ])
-        .on_window_event(|event| {
-            if let tauri::WindowEvent::Destroyed = event.event() {
+        .on_window_event(|_window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
                 println!("🛑 Window destroyed, killing dev server...");
                 kill_dev_server();
             }

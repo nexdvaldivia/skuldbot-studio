@@ -22,7 +22,7 @@ import {
   Shield,
   KeyRound,
 } from "lucide-react";
-import { open } from "@tauri-apps/api/shell";
+import { open } from "@tauri-apps/plugin-shell";
 import { nodeTemplates } from "../data/nodeTemplates";
 import { NodeTemplate, NodeCategory } from "../types/flow";
 import { Icon } from "./ui/Icon";

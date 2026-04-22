@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { useVaultStore, VaultSecret } from "../store/vaultStore";
+import { useUiPreferencesStore } from "../store/uiPreferencesStore";
 import { Input } from "./ui/Input";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
@@ -270,6 +271,9 @@ export default function SettingsPanel() {
     checkVaultStatus,
     setVaultPath,
   } = useVaultStore();
+
+  const showTypeLabels = useUiPreferencesStore((state) => state.showTypeLabels);
+  const setShowTypeLabels = useUiPreferencesStore((state) => state.setShowTypeLabels);
 
   const [hasChanges, setHasChanges] = useState(false);
   const [showAddSecret, setShowAddSecret] = useState(false);
@@ -584,6 +588,36 @@ export default function SettingsPanel() {
                   onCheckedChange={(checked) =>
                     handleChange("defaultHeadless", checked)
                   }
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Canvas Display */}
+          <div className="bg-white rounded-xl border border-slate-200">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-slate-400" />
+                <h2 className="font-medium text-slate-800">Canvas Display</h2>
+              </div>
+              <p className="text-sm text-slate-500 mt-1">
+                How nodes are rendered on the design canvas
+              </p>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="show-type-labels" className="text-sm font-medium text-slate-700">
+                    Show node type labels
+                  </Label>
+                  <p className="text-sm text-slate-500">
+                    Display the technical node type (e.g. <code className="px-1 py-0.5 bg-slate-100 rounded font-mono text-[11px]">files.list</code>) under each node label. Useful for debugging; hide for a cleaner canvas.
+                  </p>
+                </div>
+                <Switch
+                  id="show-type-labels"
+                  checked={showTypeLabels}
+                  onCheckedChange={setShowTypeLabels}
                 />
               </div>
             </div>

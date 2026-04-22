@@ -5,6 +5,7 @@ import { FlowNodeData, NodeCategory } from "../types/flow";
 import { getNodeTemplate } from "../data/nodeTemplates";
 import { useValidationStore } from "../store/validationStore";
 import { useDebugStore, useNodeDebugState } from "../store/debugStore";
+import { useUiPreferencesStore } from "../store/uiPreferencesStore";
 import { Icon } from "./ui/Icon";
 import { AlertCircle, AlertTriangle, Circle, Trash2, CheckCircle2, Play, Loader2, X, Pin } from "lucide-react";
 
@@ -165,6 +166,7 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
 function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const template = getNodeTemplate(data.nodeType);
   const style = categoryStyles[data.category] || categoryStyles.control;
+  const showTypeLabels = useUiPreferencesStore((state) => state.showTypeLabels);
   const isAI = data.category === "ai";
   const isPython = data.category === "python";
   const isTrigger = data.category === "trigger";
@@ -598,7 +600,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
           <span className="text-sm font-semibold text-slate-800 truncate block">
             {data.label}
           </span>
-          {template && (
+          {template && showTypeLabels && (
             <span className="text-[11px] text-slate-400 font-mono truncate block">
               {template.type}
             </span>
