@@ -159,6 +159,12 @@ static VAULT_SESSION: Lazy<StdMutex<VaultSession>> = Lazy::new(|| {
     })
 });
 
+// Runtime package paths resolved at app startup.
+static EXECUTOR_PACKAGE_PATH: Lazy<StdMutex<Option<PathBuf>>> =
+    Lazy::new(|| StdMutex::new(None));
+static COMPILER_PACKAGE_PATH: Lazy<StdMutex<Option<PathBuf>>> =
+    Lazy::new(|| StdMutex::new(None));
+
 // ============================================================
 // Project System Types
 // ============================================================
@@ -249,6 +255,14 @@ struct CommandResult {
 
 // Get the path to the executor Python package directory.
 fn get_engine_path() -> PathBuf {
+    if let Ok(explicit_path) = std::env::var("SKULDBOT_EXECUTOR_PY_PATH") {
+        let explicit = PathBuf::from(explicit_path);
+        if explicit.exists() {
+            println!("🔧 Executor path (SKULDBOT_EXECUTOR_PY_PATH): {}", explicit.display());
+            return explicit;
+        }
+    }
+
     if let Ok(explicit_path) = std::env::var("SKULDBOT_EXECUTOR_PATH") {
         let explicit = PathBuf::from(explicit_path);
         if explicit.exists() {
@@ -257,33 +271,15 @@ fn get_engine_path() -> PathBuf {
         }
     }
 
-    let possible_paths = vec![
-        PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuld-projects/skuldbot-executor/python"),
-        {
-            let mut path = std::env::current_exe()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_path_buf();
-            for _ in 0..3 {
-                path.pop();
+    if let Ok(guard) = EXECUTOR_PACKAGE_PATH.lock() {
+        if let Some(path) = guard.as_ref() {
+            if path.exists() {
+                return path.clone();
             }
-            path.push("skuldbot-executor");
-            path.push("python");
-            path
-        },
-        PathBuf::from("../skuldbot-executor/python"),
-        PathBuf::from("../../skuldbot-executor/python"),
-    ];
-
-    for path in possible_paths {
-        if path.exists() {
-            println!("🔧 Executor found at: {}", path.display());
-            return path;
         }
     }
 
-    PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuld-projects/skuldbot-executor/python")
+    PathBuf::new()
 }
 
 // Get the path to the compiler Python package directory.
@@ -296,39 +292,63 @@ fn get_compiler_path() -> PathBuf {
         }
     }
 
-    let possible_paths = vec![
-        PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuld-projects/skuldbot-compiler/python"),
-        {
-            let mut path = std::env::current_exe()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_path_buf();
-            for _ in 0..3 {
-                path.pop();
+    if let Ok(guard) = COMPILER_PACKAGE_PATH.lock() {
+        if let Some(path) = guard.as_ref() {
+            if path.exists() {
+                return path.clone();
             }
-            path.push("skuldbot-compiler");
-            path.push("python");
-            path
-        },
-        PathBuf::from("../skuldbot-compiler/python"),
-        PathBuf::from("../../skuldbot-compiler/python"),
-    ];
-
-    for path in possible_paths {
-        if path.exists() {
-            println!("🔧 Compiler found at: {}", path.display());
-            return path;
         }
     }
 
-    PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuld-projects/skuldbot-compiler/python")
+    PathBuf::new()
+}
+
+fn resolve_runtime_venv_path() -> PathBuf {
+    if let Ok(custom_path) = std::env::var("SKULDBOT_PYTHON_VENV_PATH") {
+        return PathBuf::from(custom_path);
+    }
+
+    dirs::home_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join(".skuldbot")
+        .join("studio")
+        .join(".venv")
+}
+
+fn initialize_runtime_paths(app_handle: &tauri::AppHandle) {
+    let resource_dir = match app_handle.path().resource_dir() {
+        Ok(path) => path,
+        Err(err) => {
+            println!("⚠️ Could not resolve Tauri resource dir: {}", err);
+            return;
+        }
+    };
+
+    let executor_path = resource_dir
+        .join("runtime")
+        .join("skuldbot-executor-python");
+    if executor_path.exists() {
+        if let Ok(mut guard) = EXECUTOR_PACKAGE_PATH.lock() {
+            *guard = Some(executor_path.clone());
+        }
+        println!("🔧 Executor package bundle path: {}", executor_path.display());
+    }
+
+    let compiler_path = resource_dir
+        .join("runtime")
+        .join("skuldbot-compiler-python");
+    if compiler_path.exists() {
+        if let Ok(mut guard) = COMPILER_PACKAGE_PATH.lock() {
+            *guard = Some(compiler_path.clone());
+        }
+        println!("🔧 Compiler package bundle path: {}", compiler_path.display());
+    }
 }
 
 // Get Python executable from the engine's venv
 fn get_python_executable() -> String {
-    let engine_path = get_engine_path();
-    let venv_python = engine_path.join(".venv").join("bin").join("python3");
+    let venv_path = resolve_runtime_venv_path();
+    let venv_python = venv_path.join("bin").join("python3");
 
     // Use venv Python if available, otherwise fall back to system python
     if venv_python.exists() {
@@ -364,7 +384,18 @@ fn setup_engine() {
     println!("🔧 Setting up SkuldBot engine...");
     let engine_path = get_engine_path();
     let compiler_path = get_compiler_path();
-    let venv_path = engine_path.join(".venv");
+    if !engine_path.exists() {
+        println!("⚠️ Executor package path not found. Set SKULDBOT_EXECUTOR_PY_PATH for dev or include bundled runtime resources.");
+        SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
+        return;
+    }
+    if !compiler_path.exists() {
+        println!("⚠️ Compiler package path not found. Set SKULDBOT_COMPILER_PATH for dev or include bundled runtime resources.");
+        SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
+        return;
+    }
+
+    let venv_path = resolve_runtime_venv_path();
     let requirements_path = engine_path.join("requirements.txt");
 
     // Check if venv exists, if not create it
@@ -374,9 +405,13 @@ fn setup_engine() {
         println!("   FIRST TIME SETUP: Creating Python environment...");
         println!("══════════════════════════════════════════════════════════");
 
+        if let Some(parent) = venv_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
         let status = Command::new("python3")
-            .args(["-m", "venv", ".venv"])
-            .current_dir(&engine_path)
+            .arg("-m")
+            .arg("venv")
+            .arg(&venv_path)
             .status();
 
         match status {
@@ -395,13 +430,6 @@ fn setup_engine() {
 
     if !pip_exe.exists() {
         println!("⚠️  pip not found in venv, skipping dependency installation");
-        SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
-        return;
-    }
-
-    // Check if requirements.txt exists
-    if !requirements_path.exists() {
-        println!("⚠️  requirements.txt not found, skipping dependency installation");
         SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
         return;
     }
@@ -429,13 +457,25 @@ fn setup_engine() {
         println!("══════════════════════════════════════════════════════════");
         println!("");
 
-        let status = Command::new(&pip_exe)
-            .args(["install", "-r", "requirements.txt"])
-            .current_dir(&engine_path)
-            .status();
+        let deps_ready = if requirements_path.exists() {
+            match Command::new(&pip_exe)
+                .arg("install")
+                .arg("-r")
+                .arg(requirements_path.to_string_lossy().as_ref())
+                .status()
+            {
+                Ok(s) => s.success(),
+                Err(e) => {
+                    println!("⚠️  pip install failed: {}", e);
+                    false
+                }
+            }
+        } else {
+            println!("⚠️ requirements.txt not found in executor package, continuing with package install only.");
+            true
+        };
 
-        match status {
-            Ok(s) if s.success() => {
+        if deps_ready {
                 println!("");
                 println!("══════════════════════════════════════════════════════════");
                 println!("   ✅ ALL DEPENDENCIES INSTALLED SUCCESSFULLY!");
@@ -443,27 +483,28 @@ fn setup_engine() {
                 println!("");
                 let _ = std::fs::write(&marker_path, "installed");
 
+                let executor_install = Command::new(&pip_exe)
+                    .args(["install", engine_path.to_str().unwrap()])
+                    .status();
+                match executor_install {
+                    Ok(s) if s.success() => println!("✅ Executor package installed in Studio venv"),
+                    Ok(s) => println!("⚠️  Executor package install failed: exit code {:?}", s.code()),
+                    Err(e) => println!("⚠️  Executor package install failed: {}", e),
+                }
+
                 let compiler_install = Command::new(&pip_exe)
-                    .args(["install", "-e", compiler_path.to_str().unwrap()])
+                    .args(["install", compiler_path.to_str().unwrap()])
                     .status();
                 match compiler_install {
-                    Ok(s) if s.success() => println!("✅ Compiler package installed in executor venv"),
+                    Ok(s) if s.success() => println!("✅ Compiler package installed in Studio venv"),
                     Ok(s) => println!("⚠️  Compiler package install failed: exit code {:?}", s.code()),
                     Err(e) => println!("⚠️  Compiler package install failed: {}", e),
                 }
-            }
-            Ok(s) => {
-                println!("");
-                println!("⚠️  pip install failed: exit code {:?}", s.code());
-                println!("   You may need to install dependencies manually:");
-                println!("   cd engine && pip install -r requirements.txt");
-                println!("");
-            }
-            Err(e) => {
-                println!("");
-                println!("⚠️  pip install failed: {}", e);
-                println!("");
-            }
+        } else {
+            println!("");
+            println!("⚠️  pip install failed");
+            println!("   You may need to install dependencies manually in the Studio venv.");
+            println!("");
         }
     } else {
         println!("✅ Dependencies are up to date");
@@ -6279,10 +6320,12 @@ fn main() {
         }
     }
 
-    // Auto-setup engine: create venv and install dependencies if needed
-    setup_engine();
-
     tauri::Builder::default()
+        .setup(|app| {
+            initialize_runtime_paths(app.handle());
+            setup_engine();
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
