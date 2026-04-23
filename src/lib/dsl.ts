@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 /**
  * DSL builder — serializes an in-memory bot graph (nodes + edges) to the
  * canonical DSL JSON shape consumed by the compiler and runtime.

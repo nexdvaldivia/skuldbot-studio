@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 /**
  * Preview Panel - Workflow Visualization
  * Shows the generated workflow with step-by-step execution plan

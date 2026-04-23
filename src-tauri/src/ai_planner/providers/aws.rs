@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 // AWS Bedrock Provider
 // Tests AWS Bedrock model access
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { memo } from "react";
 import { Handle, Position, NodeProps, NodeResizer, useReactFlow } from "reactflow";
 import { FlowNodeData, NodeCategory } from "../types/flow";

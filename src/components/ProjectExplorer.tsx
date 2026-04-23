@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useState } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";

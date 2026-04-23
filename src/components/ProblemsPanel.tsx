@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useEffect, useState } from "react";
 import { AlertCircle, AlertTriangle, Info, ChevronDown, ChevronRight, X } from "lucide-react";
 import { useValidationStore, ValidationIssue } from "../store/validationStore";

@@ -1,0 +1,67 @@
+name: ip-gate
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ip-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate proprietary LICENSE
+        run: |
+          test -f LICENSE
+          grep -q "Skuld, LLC" LICENSE
+          grep -q "Proprietary" LICENSE
+
+      - name: Validate release workflow has cosign (if present)
+        run: |
+          if [ -f .github/workflows/release.yml ]; then
+            grep -qi "cosign" .github/workflows/release.yml || {
+              echo "release.yml must include cosign signing steps";
+              exit 1;
+            }
+          fi
+
+      - name: Validate changed file copyright headers
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            CHANGED=$(git diff --name-only "$BASE_REF"...HEAD)
+          else
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD)
+            else
+              CHANGED=$(git ls-files)
+            fi
+          fi
+
+          if [ -z "$CHANGED" ]; then
+            echo "No changed files to validate"
+            exit 0
+          fi
+
+          python3 scripts/security/ensure_copyright_headers.py --check $CHANGED
+
+      - name: Reject committed sourcemaps
+        run: |
+          if find . -type f -name "*.map" \
+              -not -path "*/node_modules/*" \
+              -not -path "*/.git/*" \
+              | grep -q .; then
+            echo "Committed sourcemap files are not allowed"
+            find . -type f -name "*.map" \
+              -not -path "*/node_modules/*" \
+              -not -path "*/.git/*"
+            exit 1
+          fi

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 /**
  * AI Planner V2 Wrapper
  * Connects the V2 panel to the store

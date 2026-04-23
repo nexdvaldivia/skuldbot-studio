@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 /**
  * ConfirmDialog - Reusable confirmation dialog component
  * Replaces native confirm() with a modern, accessible dialog

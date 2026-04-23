@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+  - repo: local
+    hooks:
+      - id: skuldbot-copyright-header
+        name: Enforce Skuld proprietary copyright headers
+        entry: python3 scripts/security/ensure_copyright_headers.py --check
+        language: system
+        files: \.(py|ts|tsx|js|jsx|rs)$

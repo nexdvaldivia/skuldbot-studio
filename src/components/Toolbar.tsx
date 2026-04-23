@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { Play, Download, Upload, Trash2, Package, Settings, HelpCircle, Loader2, Home } from "lucide-react";
 import { useState } from "react";
 import { useFlowStore, FormTriggerConfig } from "../store/flowStore";

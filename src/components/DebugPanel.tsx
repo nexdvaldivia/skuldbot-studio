@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { Play, Pause, Square, StepForward, SkipForward, Circle, Trash2, Eye, ChevronDown, ChevronRight, Settings2, CheckCircle2, XCircle, Loader2, Timer } from "lucide-react";
 import { useDebugStore, DebugState } from "../store/debugStore";
 import { cn } from "../lib/utils";

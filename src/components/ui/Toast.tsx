@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { X, CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
 import { useEffect } from "react";
 

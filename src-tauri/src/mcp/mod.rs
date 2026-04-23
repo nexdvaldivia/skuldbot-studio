@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 //! MCP (Model Context Protocol) Client Module
 //! 
 //! This module provides an MCP CLIENT for SkuldBot Studio.

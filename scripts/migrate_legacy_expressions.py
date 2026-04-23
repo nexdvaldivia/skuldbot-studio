@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Skuld, LLC. All rights reserved.
+# Proprietary and confidential. Reverse engineering prohibited.
+
 """Migrate legacy Studio expressions to canonical node-id syntax.
 
 Legacy format:

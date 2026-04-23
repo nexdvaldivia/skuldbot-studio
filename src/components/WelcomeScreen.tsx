@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { SkuldLogo } from "./ui/SkuldLogo";

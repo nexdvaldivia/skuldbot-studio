@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 /**
  * AI Planner V2 Panel - Executable Workflows
  * Conversational workflow generation with switchable workspace panels

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 //! MCP Types
 //! 
 //! Core data structures for the Model Context Protocol implementation

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { ChevronDown, ChevronUp, Trash2, Copy, Download, Terminal, Filter } from "lucide-react";
 import { useLogsStore, type LogEntry } from "../store/logsStore";
 import { useToastStore } from "../store/toastStore";

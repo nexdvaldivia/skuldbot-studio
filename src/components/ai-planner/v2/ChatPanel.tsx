@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 /**
  * Chat Panel - Conversational AI Planning
  * User can describe automations and refine through natural conversation

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { useFlowStore } from "./flowStore";

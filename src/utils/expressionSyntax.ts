@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import type { FlowNode } from "../types/flow";
 
 type Primitive = string | number | boolean | null | undefined;

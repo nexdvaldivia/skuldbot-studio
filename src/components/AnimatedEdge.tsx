@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { EdgeProps, getSmoothStepPath, useReactFlow, EdgeLabelRenderer } from "reactflow";
 import { Trash2, Wrench, Brain, Sparkles, MessageSquare } from "lucide-react";
 

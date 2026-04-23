@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { memo, useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";

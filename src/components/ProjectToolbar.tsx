@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { Play, Square, Download, Save, Package, Loader2, Undo, Redo } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";

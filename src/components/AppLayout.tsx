@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { ReactFlowProvider } from "reactflow";
 import { useNavigationStore } from "../store/navigationStore";
 import { useProjectStore } from "../store/projectStore";

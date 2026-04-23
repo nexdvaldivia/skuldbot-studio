@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 

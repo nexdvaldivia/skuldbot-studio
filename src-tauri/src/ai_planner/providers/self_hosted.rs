@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 // Self-Hosted Provider (vLLM, TGI, llama.cpp, LM Studio, LocalAI)
 // Tests OpenAI-compatible self-hosted endpoints
 

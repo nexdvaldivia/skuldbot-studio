@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Download, CheckCircle2, Loader2 } from "lucide-react";

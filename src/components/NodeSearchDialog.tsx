@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, X, ChevronRight } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";

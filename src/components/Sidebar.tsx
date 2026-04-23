@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRight, Search, GripVertical, Sparkles, MousePointer } from "lucide-react";

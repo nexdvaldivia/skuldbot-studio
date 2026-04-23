@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useState, useCallback } from "react";
 import { ProtectionRule, ProtectionMethodType } from "../types/flow";
 import { Icon } from "./ui/Icon";

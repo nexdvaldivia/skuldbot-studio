@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 import { useState, useEffect } from "react";
 import { useVaultStore } from "../store/vaultStore";
 import { useProjectStore } from "../store/projectStore";

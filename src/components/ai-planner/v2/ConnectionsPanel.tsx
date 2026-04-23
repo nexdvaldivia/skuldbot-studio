@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Skuld, LLC. All rights reserved.
+// Proprietary and confidential. Reverse engineering prohibited.
+
 /**
  * Connections Panel - LLM Provider Management
  * Enterprise-grade UI for managing AI Planner LLM connections
