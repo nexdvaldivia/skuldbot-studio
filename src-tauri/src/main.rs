@@ -9,7 +9,7 @@ mod mcp;
 mod ai_planner;
 
 use std::process::Command;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::ErrorKind;
 use tauri::Manager;
@@ -41,6 +41,19 @@ struct CompileResult {
     success: bool,
     message: String,
     bot_path: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct CompiledPackageInspection {
+    #[serde(rename = "packageId")]
+    package_id: String,
+    #[serde(rename = "fileName")]
+    file_name: String,
+    digest: String,
+    #[serde(rename = "sizeBytes")]
+    size_bytes: u64,
+    #[serde(rename = "storageKey")]
+    storage_key: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -605,6 +618,98 @@ print(str(bot_dir))
         
         Err(format!("Compilation error: {}", error))
     }
+}
+
+#[tauri::command]
+async fn inspect_compiled_package(bot_path: String) -> Result<CompiledPackageInspection, String> {
+    let package_path = PathBuf::from(&bot_path);
+    if !package_path.exists() {
+        return Err(format!("Compiled package path not found: {}", bot_path));
+    }
+
+    let mut files = Vec::new();
+    collect_package_files(&package_path, &mut files)?;
+    files.sort();
+
+    let mut hasher = Sha256::new();
+    let mut size_bytes = 0_u64;
+
+    for file_path in files {
+        let relative_path = file_path
+            .strip_prefix(&package_path)
+            .unwrap_or(file_path.as_path())
+            .to_string_lossy()
+            .replace('\\', "/");
+        let bytes = fs::read(&file_path).map_err(|e| {
+            format!(
+                "Failed to read compiled package file {}: {}",
+                file_path.display(),
+                e
+            )
+        })?;
+        size_bytes = size_bytes
+            .checked_add(bytes.len() as u64)
+            .ok_or_else(|| "Compiled package size overflow".to_string())?;
+        hasher.update(relative_path.as_bytes());
+        hasher.update([0]);
+        hasher.update(&bytes);
+        hasher.update([0]);
+    }
+
+    if size_bytes == 0 {
+        return Err(format!("Compiled package path is empty: {}", bot_path));
+    }
+
+    let digest = format!("sha256:{}", bytes_to_hex(&hasher.finalize()));
+    let file_name = package_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("compiled-package")
+        .to_string();
+    let package_id = format!("studio-local-{}", Uuid::new_v4());
+
+    Ok(CompiledPackageInspection {
+        package_id,
+        file_name,
+        digest,
+        size_bytes,
+        storage_key: package_path.to_string_lossy().to_string(),
+    })
+}
+
+fn collect_package_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    if path.is_file() {
+        files.push(path.to_path_buf());
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(path).map_err(|e| {
+        format!(
+            "Failed to read compiled package directory {}: {}",
+            path.display(),
+            e
+        )
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let entry_path = entry.path();
+        if entry_path.is_dir() {
+            collect_package_files(&entry_path, files)?;
+        } else if entry_path.is_file() {
+            files.push(entry_path);
+        }
+    }
+
+    Ok(())
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    let mut hex = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        hex.push_str(&format!("{:02x}", byte));
+    }
+    hex
 }
 
 #[tauri::command]
@@ -6334,6 +6439,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             // Engine commands
             compile_dsl,
+            inspect_compiled_package,
             run_bot,
             stop_bot,
             validate_dsl,
