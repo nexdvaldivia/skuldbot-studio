@@ -1,17 +1,7 @@
 // Copyright (c) 2026 Skuld, LLC. All rights reserved.
 // Proprietary and confidential. Reverse engineering prohibited.
 
-import {
-  Play,
-  Square,
-  Download,
-  Save,
-  Package,
-  Loader2,
-  Undo,
-  Redo,
-  ShieldCheck,
-} from "lucide-react";
+import { Play, Square, Download, Save, Package, Loader2, Undo, Redo } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useProjectStore } from "../store/projectStore";
@@ -26,21 +16,10 @@ import { Button } from "./ui/Button";
 import FormTriggerModal from "./FormTriggerModal";
 import { DSLNode } from "../types/flow";
 import { buildExecutionDSL } from "../lib/dsl";
-import { verifyStudioPublishPackage } from "../lib/studioPublishClient";
 import {
   getSchemaCandidateFromNodeData,
   parseNodeRuntimeTelemetryLine,
 } from "../utils/nodeRuntimeTelemetry";
-import { PublishGatePanel } from "./publish/PublishGatePanel";
-import type { StudioPublishGateReadModel } from "../types/publish-gate";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
-import { Input } from "./ui/Input";
 
 export default function ProjectToolbar() {
   const { project, activeBotId, saveBot, getActiveBot, updateActiveBotNodes, updateActiveBotEdges } = useProjectStore();
@@ -59,56 +38,11 @@ export default function ProjectToolbar() {
   const [isSaving, setIsSaving] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [formConfig, setFormConfig] = useState<FormTriggerConfig | null>(null);
-  const [showPublishGate, setShowPublishGate] = useState(false);
-  const [isVerifyingPublish, setIsVerifyingPublish] = useState(false);
-  const [orchestratorUrl, setOrchestratorUrl] = useState("");
-  const [orchestratorToken, setOrchestratorToken] = useState("");
-  const [publishGateModel, setPublishGateModel] =
-    useState<StudioPublishGateReadModel | null>(null);
-  const [publishVerifyError, setPublishVerifyError] = useState<string | null>(
-    null,
-  );
 
   const activeBot = getActiveBot();
   const activeTab = tabs.find((t) => t.botId === activeBotId);
   const hasNodes = (activeBot?.nodes.length || 0) > 0;
   const isDirty = activeTab?.isDirty || false;
-
-  const buildDslForActiveBot = () => {
-    if (!activeBot) return null;
-
-    const dsl = buildExecutionDSL(
-      { id: activeBot.id, name: activeBot.name, description: activeBot.description },
-      activeBot.nodes,
-      activeBot.edges
-    );
-
-    const hasTrigger = activeBot.nodes.some(
-      (n) => n.data.category === "trigger"
-    );
-
-    if (!hasTrigger) {
-      const manualTriggerId = `trigger-manual-${Date.now()}`;
-      const firstNodeId = dsl.nodes[0]?.id;
-
-      const manualTriggerNode: DSLNode = {
-        id: manualTriggerId,
-        type: "trigger.manual",
-        config: {},
-        outputs: {
-          success: firstNodeId || "END",
-          error: "END",
-        },
-        label: "Manual Trigger",
-      };
-
-      dsl.nodes.unshift(manualTriggerNode);
-      dsl.triggers = [manualTriggerId];
-      dsl.start_node = manualTriggerId;
-    }
-
-    return dsl;
-  };
 
   // Handle undo
   const handleUndo = () => {
@@ -254,53 +188,6 @@ export default function ProjectToolbar() {
       toast.error("Compilation failed", String(error).substring(0, 100));
     } finally {
       setIsCompiling(false);
-    }
-  };
-
-  const handleVerifyPublish = async () => {
-    if (!activeBot || !hasNodes) return;
-
-    if (!orchestratorUrl.trim() || !orchestratorToken.trim()) {
-      setPublishVerifyError("Orchestrator URL and access token are required.");
-      return;
-    }
-
-    const dsl = buildDslForActiveBot();
-    if (!dsl) return;
-
-    setIsVerifyingPublish(true);
-    setPublishVerifyError(null);
-    logs.info("Verifying publish package against Orchestrator...");
-
-    try {
-      const model = await verifyStudioPublishPackage(
-        {
-          orchestratorUrl,
-          accessToken: orchestratorToken,
-        },
-        {
-          bot: {
-            id: activeBot.id,
-            name: activeBot.name,
-            description: activeBot.description,
-          },
-          dsl: dsl as unknown as Record<string, unknown>,
-          nodes: activeBot.nodes,
-          edges: activeBot.edges,
-        },
-      );
-      setPublishGateModel(model);
-      if (model.canPublish) {
-        toast.success("Publish gate verified");
-      } else {
-        toast.warning("Publish gate blocked");
-      }
-    } catch (error) {
-      const message = String(error).substring(0, 300);
-      setPublishVerifyError(message);
-      toast.error("Publish verify failed", message);
-    } finally {
-      setIsVerifyingPublish(false);
     }
   };
 
@@ -506,19 +393,6 @@ export default function ProjectToolbar() {
           <span className="ml-1">Build</span>
         </Button>
 
-        {/* Publish verify */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowPublishGate(true)}
-          disabled={!hasNodes}
-          title="Verify publish gate"
-          className="text-slate-500 hover:text-slate-700"
-        >
-          <ShieldCheck className="h-4 w-4" />
-          <span className="ml-1">Publish</span>
-        </Button>
-
         {/* Run */}
         <Button
           variant="ghost"
@@ -600,52 +474,6 @@ export default function ProjectToolbar() {
           }}
         />
       )}
-
-      <Dialog open={showPublishGate} onOpenChange={setShowPublishGate}>
-        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Publish gate</DialogTitle>
-            <DialogDescription>
-              Verify the active bot package against an Orchestrator before publish.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <Input
-              value={orchestratorUrl}
-              onChange={(event) => setOrchestratorUrl(event.target.value)}
-              placeholder="https://orchestrator.example.com/api"
-              autoComplete="off"
-            />
-            <Input
-              value={orchestratorToken}
-              onChange={(event) => setOrchestratorToken(event.target.value)}
-              placeholder="Access token"
-              type="password"
-              autoComplete="off"
-            />
-            <Button
-              onClick={handleVerifyPublish}
-              disabled={isVerifyingPublish || !activeBot || !hasNodes}
-            >
-              {isVerifyingPublish ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="mr-2 h-4 w-4" />
-              )}
-              Verify
-            </Button>
-          </div>
-
-          {publishVerifyError && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {publishVerifyError}
-            </div>
-          )}
-
-          {publishGateModel && <PublishGatePanel model={publishGateModel} />}
-        </DialogContent>
-      </Dialog>
     </header>
   );
 }
