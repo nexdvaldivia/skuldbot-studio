@@ -9,7 +9,7 @@ mod mcp;
 mod ai_planner;
 
 use std::process::Command;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::ErrorKind;
 use tauri::Manager;
@@ -368,6 +368,114 @@ fn get_python_executable() -> String {
     }
 }
 
+fn runtime_python_executable(venv_path: &Path) -> PathBuf {
+    if cfg!(windows) {
+        venv_path.join("Scripts").join("python.exe")
+    } else {
+        venv_path.join("bin").join("python3")
+    }
+}
+
+fn dependency_inputs_newer_than_marker(input_paths: &[PathBuf], marker_path: &Path) -> bool {
+    let marker_modified = match std::fs::metadata(marker_path).and_then(|m| m.modified()) {
+        Ok(modified) => modified,
+        Err(_) => return true,
+    };
+
+    input_paths.iter().any(|path| {
+        std::fs::metadata(path)
+            .and_then(|m| m.modified())
+            .map(|modified| modified > marker_modified)
+            .unwrap_or(false)
+    })
+}
+
+fn runtime_python_imports_available(python_exe: &Path) -> bool {
+    let import_check = concat!(
+        "import jinja2\n",
+        "import pydantic\n",
+        "import yaml\n",
+        "import skuldbot_compiler\n"
+    );
+
+    match Command::new(python_exe).arg("-c").arg(import_check).status() {
+        Ok(status) if status.success() => true,
+        Ok(status) => {
+            println!(
+                "⚠️ Studio Python dependency import check failed: exit code {:?}",
+                status.code()
+            );
+            false
+        }
+        Err(err) => {
+            println!(
+                "⚠️ Studio Python dependency import check could not run: {}",
+                err
+            );
+            false
+        }
+    }
+}
+
+fn install_requirements(pip_exe: &Path, requirements_path: &Path, package_label: &str) -> bool {
+    if !requirements_path.exists() {
+        println!(
+            "⚠️ requirements.txt not found in {} package, continuing with package install only.",
+            package_label
+        );
+        return true;
+    }
+
+    match Command::new(pip_exe)
+        .arg("install")
+        .arg("-r")
+        .arg(requirements_path)
+        .status()
+    {
+        Ok(status) if status.success() => {
+            println!("✅ {} requirements installed", package_label);
+            true
+        }
+        Ok(status) => {
+            println!(
+                "⚠️ {} requirements install failed: exit code {:?}",
+                package_label,
+                status.code()
+            );
+            false
+        }
+        Err(err) => {
+            println!("⚠️ {} requirements install failed: {}", package_label, err);
+            false
+        }
+    }
+}
+
+fn install_python_package(pip_exe: &Path, package_path: &Path, package_label: &str) -> bool {
+    match Command::new(pip_exe)
+        .arg("install")
+        .arg(package_path)
+        .status()
+    {
+        Ok(status) if status.success() => {
+            println!("✅ {} package installed in Studio venv", package_label);
+            true
+        }
+        Ok(status) => {
+            println!(
+                "⚠️ {} package install failed: exit code {:?}",
+                package_label,
+                status.code()
+            );
+            false
+        }
+        Err(err) => {
+            println!("⚠️ {} package install failed: {}", package_label, err);
+            false
+        }
+    }
+}
+
 // Setup status for UI notification
 #[derive(Clone, serde::Serialize)]
 pub struct SetupStatus {
@@ -399,7 +507,8 @@ fn setup_engine() {
     }
 
     let venv_path = resolve_runtime_venv_path();
-    let requirements_path = engine_path.join("requirements.txt");
+    let executor_requirements_path = engine_path.join("requirements.txt");
+    let compiler_requirements_path = compiler_path.join("requirements.txt");
 
     // Check if venv exists, if not create it
     if !venv_path.exists() {
@@ -430,6 +539,7 @@ fn setup_engine() {
     } else {
         venv_path.join("bin").join("pip")
     };
+    let python_exe = runtime_python_executable(&venv_path);
 
     if !pip_exe.exists() {
         println!("⚠️  pip not found in venv, skipping dependency installation");
@@ -439,17 +549,15 @@ fn setup_engine() {
 
     // Check if we need to install/update dependencies
     let marker_path = venv_path.join(".deps_installed");
-    let requirements_modified = std::fs::metadata(&requirements_path)
-        .and_then(|m| m.modified())
-        .ok();
-    let marker_modified = std::fs::metadata(&marker_path)
-        .and_then(|m| m.modified())
-        .ok();
-
-    let needs_install = match (requirements_modified, marker_modified) {
-        (Some(req_time), Some(marker_time)) => req_time > marker_time,
-        _ => true,
-    };
+    let dependency_inputs = vec![
+        executor_requirements_path.clone(),
+        compiler_requirements_path.clone(),
+        engine_path.join("pyproject.toml"),
+        compiler_path.join("pyproject.toml"),
+    ];
+    let imports_ready = runtime_python_imports_available(&python_exe);
+    let needs_install =
+        dependency_inputs_newer_than_marker(&dependency_inputs, &marker_path) || !imports_ready;
 
     if needs_install {
         SETUP_HAD_INSTALL.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -460,23 +568,11 @@ fn setup_engine() {
         println!("══════════════════════════════════════════════════════════");
         println!("");
 
-        let deps_ready = if requirements_path.exists() {
-            match Command::new(&pip_exe)
-                .arg("install")
-                .arg("-r")
-                .arg(requirements_path.to_string_lossy().as_ref())
-                .status()
-            {
-                Ok(s) => s.success(),
-                Err(e) => {
-                    println!("⚠️  pip install failed: {}", e);
-                    false
-                }
-            }
-        } else {
-            println!("⚠️ requirements.txt not found in executor package, continuing with package install only.");
-            true
-        };
+        let deps_ready = install_requirements(&pip_exe, &executor_requirements_path, "Executor")
+            && install_requirements(&pip_exe, &compiler_requirements_path, "Compiler")
+            && install_python_package(&pip_exe, &engine_path, "Executor")
+            && install_python_package(&pip_exe, &compiler_path, "Compiler")
+            && runtime_python_imports_available(&python_exe);
 
         if deps_ready {
                 println!("");
@@ -485,28 +581,11 @@ fn setup_engine() {
                 println!("══════════════════════════════════════════════════════════");
                 println!("");
                 let _ = std::fs::write(&marker_path, "installed");
-
-                let executor_install = Command::new(&pip_exe)
-                    .args(["install", engine_path.to_str().unwrap()])
-                    .status();
-                match executor_install {
-                    Ok(s) if s.success() => println!("✅ Executor package installed in Studio venv"),
-                    Ok(s) => println!("⚠️  Executor package install failed: exit code {:?}", s.code()),
-                    Err(e) => println!("⚠️  Executor package install failed: {}", e),
-                }
-
-                let compiler_install = Command::new(&pip_exe)
-                    .args(["install", compiler_path.to_str().unwrap()])
-                    .status();
-                match compiler_install {
-                    Ok(s) if s.success() => println!("✅ Compiler package installed in Studio venv"),
-                    Ok(s) => println!("⚠️  Compiler package install failed: exit code {:?}", s.code()),
-                    Err(e) => println!("⚠️  Compiler package install failed: {}", e),
-                }
         } else {
             println!("");
             println!("⚠️  pip install failed");
-            println!("   You may need to install dependencies manually in the Studio venv.");
+            println!("   Studio runtime dependencies were not fully provisioned.");
+            println!("   Delete the Studio venv or inspect the pip output before retrying.");
             println!("");
         }
     } else {
