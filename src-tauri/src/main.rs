@@ -9,7 +9,7 @@ mod mcp;
 mod ai_planner;
 
 use std::process::Command;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::ErrorKind;
 use tauri::Manager;
@@ -381,19 +381,57 @@ pub struct SetupStatus {
 // Global setup status
 static SETUP_COMPLETE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SETUP_HAD_INSTALL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static SETUP_FAILED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn runtime_imports_ready(python_exe: &Path) -> bool {
+    Command::new(python_exe)
+        .args(["-c", "import jinja2, skuldbot, skuldbot_compiler"])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn install_python_package(pip_exe: &Path, package_path: &Path, name: &str) -> bool {
+    match Command::new(pip_exe).arg("install").arg(package_path).status() {
+        Ok(status) if status.success() => {
+            println!("✅ {} package installed in Studio venv", name);
+            true
+        }
+        Ok(status) => {
+            println!("⚠️  {} package install failed: exit code {:?}", name, status.code());
+            false
+        }
+        Err(error) => {
+            println!("⚠️  {} package install failed: {}", name, error);
+            false
+        }
+    }
+}
+
+fn runtime_install_succeeded(
+    dependencies_ready: bool,
+    executor_ready: bool,
+    compiler_ready: bool,
+    imports_ready: bool,
+) -> bool {
+    dependencies_ready && executor_ready && compiler_ready && imports_ready
+}
 
 // Setup engine: create venv if needed and install dependencies
 fn setup_engine() {
     println!("🔧 Setting up SkuldBot engine...");
+    SETUP_FAILED.store(false, std::sync::atomic::Ordering::SeqCst);
     let engine_path = get_engine_path();
     let compiler_path = get_compiler_path();
     if !engine_path.exists() {
         println!("⚠️ Executor package path not found. Set SKULDBOT_EXECUTOR_PY_PATH for dev or include bundled runtime resources.");
+        SETUP_FAILED.store(true, std::sync::atomic::Ordering::SeqCst);
         SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
         return;
     }
     if !compiler_path.exists() {
         println!("⚠️ Compiler package path not found. Set SKULDBOT_COMPILER_PATH for dev or include bundled runtime resources.");
+        SETUP_FAILED.store(true, std::sync::atomic::Ordering::SeqCst);
         SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
         return;
     }
@@ -430,9 +468,15 @@ fn setup_engine() {
     } else {
         venv_path.join("bin").join("pip")
     };
+    let python_exe = if cfg!(windows) {
+        venv_path.join("Scripts").join("python.exe")
+    } else {
+        venv_path.join("bin").join("python3")
+    };
 
     if !pip_exe.exists() {
         println!("⚠️  pip not found in venv, skipping dependency installation");
+        SETUP_FAILED.store(true, std::sync::atomic::Ordering::SeqCst);
         SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
         return;
     }
@@ -446,10 +490,11 @@ fn setup_engine() {
         .and_then(|m| m.modified())
         .ok();
 
-    let needs_install = match (requirements_modified, marker_modified) {
+    let requirements_are_newer = match (requirements_modified, marker_modified) {
         (Some(req_time), Some(marker_time)) => req_time > marker_time,
         _ => true,
     };
+    let needs_install = requirements_are_newer || !runtime_imports_ready(&python_exe);
 
     if needs_install {
         SETUP_HAD_INSTALL.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -478,35 +523,33 @@ fn setup_engine() {
             true
         };
 
-        if deps_ready {
+        let executor_ready = deps_ready
+            && install_python_package(&pip_exe, &engine_path, "Executor");
+        let compiler_ready = deps_ready
+            && install_python_package(&pip_exe, &compiler_path, "Compiler");
+        let imports_ready = deps_ready
+            && executor_ready
+            && compiler_ready
+            && runtime_imports_ready(&python_exe);
+
+        if runtime_install_succeeded(
+            deps_ready,
+            executor_ready,
+            compiler_ready,
+            imports_ready,
+        ) {
                 println!("");
                 println!("══════════════════════════════════════════════════════════");
                 println!("   ✅ ALL DEPENDENCIES INSTALLED SUCCESSFULLY!");
                 println!("══════════════════════════════════════════════════════════");
                 println!("");
                 let _ = std::fs::write(&marker_path, "installed");
-
-                let executor_install = Command::new(&pip_exe)
-                    .args(["install", engine_path.to_str().unwrap()])
-                    .status();
-                match executor_install {
-                    Ok(s) if s.success() => println!("✅ Executor package installed in Studio venv"),
-                    Ok(s) => println!("⚠️  Executor package install failed: exit code {:?}", s.code()),
-                    Err(e) => println!("⚠️  Executor package install failed: {}", e),
-                }
-
-                let compiler_install = Command::new(&pip_exe)
-                    .args(["install", compiler_path.to_str().unwrap()])
-                    .status();
-                match compiler_install {
-                    Ok(s) if s.success() => println!("✅ Compiler package installed in Studio venv"),
-                    Ok(s) => println!("⚠️  Compiler package install failed: exit code {:?}", s.code()),
-                    Err(e) => println!("⚠️  Compiler package install failed: {}", e),
-                }
         } else {
+            let _ = std::fs::remove_file(&marker_path);
+            SETUP_FAILED.store(true, std::sync::atomic::Ordering::SeqCst);
             println!("");
-            println!("⚠️  pip install failed");
-            println!("   You may need to install dependencies manually in the Studio venv.");
+            println!("⚠️  Studio runtime installation or verification failed");
+            println!("   The runtime remains unready and will be retried on next launch.");
             println!("");
         }
     } else {
@@ -521,8 +564,17 @@ fn setup_engine() {
 fn get_engine_setup_status() -> SetupStatus {
     let is_complete = SETUP_COMPLETE.load(std::sync::atomic::Ordering::SeqCst);
     let had_install = SETUP_HAD_INSTALL.load(std::sync::atomic::Ordering::SeqCst);
+    let setup_failed = SETUP_FAILED.load(std::sync::atomic::Ordering::SeqCst);
 
-    if is_complete {
+    if is_complete && setup_failed {
+        SetupStatus {
+            stage: "error".to_string(),
+            message: "Studio runtime setup failed. Retry after correcting the runtime dependencies.".to_string(),
+            progress: 100,
+            is_complete: true,
+            is_error: true,
+        }
+    } else if is_complete {
         SetupStatus {
             stage: "complete".to_string(),
             message: if had_install {
@@ -4373,6 +4425,15 @@ fn get_api_key_from_env(provider: &str) -> Option<String> {
 mod planner_contract_tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn runtime_install_requires_every_stage() {
+        assert!(runtime_install_succeeded(true, true, true, true));
+        assert!(!runtime_install_succeeded(false, true, true, true));
+        assert!(!runtime_install_succeeded(true, false, true, true));
+        assert!(!runtime_install_succeeded(true, true, false, true));
+        assert!(!runtime_install_succeeded(true, true, true, false));
+    }
 
     fn mk_step(id: &str, node_type: &str, label: &str) -> AIPlanStep {
         AIPlanStep {
