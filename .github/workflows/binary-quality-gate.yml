@@ -59,10 +59,13 @@ jobs:
             wget
 
       - name: Verify private Compiler resource contract
-        run: >-
-          jq --exit-status
-          '.bundle.resources | index("../../skuldbot-compiler/python")'
-          src-tauri/tauri.conf.json
+        run: |
+          jq --exit-status \
+            '.bundle.resources | has("../../skuldbot-compiler/python")' \
+            src-tauri/tauri.conf.json
+          jq --exit-status \
+            '.bundle.resources | has("../../skuldbot-executor/python")' \
+            src-tauri/tauri.conf.json
 
       - name: Tauri backend tests
         env:
