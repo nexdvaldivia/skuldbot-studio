@@ -58,5 +58,13 @@ jobs:
             libxdo-dev \
             wget
 
+      - name: Verify private Compiler resource contract
+        run: >-
+          jq --exit-status
+          '.bundle.resources | index("../../skuldbot-compiler/python")'
+          src-tauri/tauri.conf.json
+
       - name: Tauri backend tests
+        env:
+          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
         run: cargo test --manifest-path src-tauri/Cargo.toml
