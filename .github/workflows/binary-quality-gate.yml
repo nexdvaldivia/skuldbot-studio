@@ -6,6 +6,46 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
-  binary-quality-gate:
-    uses: skuldllc/.github/.github/workflows/binary-quality-gate.yml@d7c38049e824eda82ba33b934f9ddcc910566e18
+  repository-policy:
+    uses: ./.github/workflows/ip-gate.yml
+
+  studio-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Dependency audit
+        run: pnpm audit
+
+      - name: Frontend verification
+        run: pnpm run verify:ui
+
+      - name: Planner flow verification
+        run: pnpm run test:planner-flow
+
+      - name: Node-template compile smoke
+        run: pnpm run smoke:compile:nodes
+
+      - name: Tauri backend tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
