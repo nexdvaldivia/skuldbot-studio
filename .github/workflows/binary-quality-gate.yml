@@ -1,0 +1,11 @@
+name: binary-quality-gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  binary-quality-gate:
+    uses: skuldllc/.github/.github/workflows/binary-quality-gate.yml@main
