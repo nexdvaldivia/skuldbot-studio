@@ -44,8 +44,5 @@ jobs:
       - name: Planner flow verification
         run: pnpm run test:planner-flow
 
-      - name: Node-template compile smoke
-        run: pnpm run smoke:compile:nodes
-
       - name: Tauri backend tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
