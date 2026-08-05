@@ -8,4 +8,4 @@ on:
 
 jobs:
   binary-quality-gate:
-    uses: skuldllc/.github/.github/workflows/binary-quality-gate.yml@main
+    uses: skuldllc/.github/.github/workflows/binary-quality-gate.yml@d7c38049e824eda82ba33b934f9ddcc910566e18
