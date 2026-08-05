@@ -44,5 +44,19 @@ jobs:
       - name: Planner flow verification
         run: pnpm run test:planner-flow
 
+      - name: Install Tauri Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
       - name: Tauri backend tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
