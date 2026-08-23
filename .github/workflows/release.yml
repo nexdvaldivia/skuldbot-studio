@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: studio-release-${{ github.ref }}
@@ -296,7 +297,6 @@ jobs:
           mkdir -p "release/$VERSION"
           find artifacts -type f -exec cp {} "release/$VERSION/" \;
           cd "release/$VERSION"
-          sha256sum * > SHA256SUMS
           cat > manifest.json <<JSON
           {
             "artifact": "skuldbot-studio",
@@ -307,6 +307,20 @@ jobs:
             "workflow_run_id": "${GITHUB_RUN_ID}"
           }
           JSON
+          sha256sum * > SHA256SUMS
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.8.2
+
+      - name: Sign release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "release/${{ needs.policy-gates.outputs.version }}"
+          cosign sign-blob SHA256SUMS \
+            --yes \
+            --output-signature SHA256SUMS.sig \
+            --output-certificate SHA256SUMS.pem
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
