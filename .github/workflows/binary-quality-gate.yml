@@ -1,0 +1,73 @@
+name: binary-quality-gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  repository-policy:
+    uses: ./.github/workflows/ip-gate.yml
+
+  studio-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Dependency audit
+        run: pnpm audit
+
+      - name: Frontend verification
+        run: pnpm run verify:ui
+
+      - name: Planner flow verification
+        run: pnpm run test:planner-flow
+
+      - name: Install Tauri Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
+      - name: Verify private Compiler resource contract
+        run: |
+          jq --exit-status \
+            '.bundle.resources | has("../../skuldbot-compiler/python")' \
+            src-tauri/tauri.conf.json
+          jq --exit-status \
+            '.bundle.resources | has("../../skuldbot-executor/python")' \
+            src-tauri/tauri.conf.json
+
+      - name: Tauri backend tests
+        env:
+          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
+        run: cargo test --manifest-path src-tauri/Cargo.toml
