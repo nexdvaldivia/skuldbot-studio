@@ -29,8 +29,6 @@ src/data/.nodeAvailability.json.*
 
 # Tauri
 src-tauri/target/
-src-tauri/Cargo.lock
-
 
 
 

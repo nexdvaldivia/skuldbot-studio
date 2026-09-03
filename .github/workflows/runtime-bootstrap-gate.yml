@@ -1,0 +1,23 @@
+# Copyright (c) 2026 Skuld, LLC. All rights reserved.
+# Proprietary and confidential. Reverse engineering prohibited.
+
+name: runtime-bootstrap-gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  runtime-bootstrap-gate:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize Tauri runtime resource paths
+        run: mkdir -p ../skuldbot-executor/python ../skuldbot-compiler/python
+      - name: Compile Studio runtime
+        working-directory: src-tauri
+        run: cargo check --locked
+      - name: Verify transactional bootstrap contract
+        working-directory: src-tauri
+        run: cargo test --locked runtime_install_requires_every_stage
